@@ -15,17 +15,17 @@
 #' tf <- tempfile(fileext = ".gpkg")
 #' 
 #' r <- terra::rast(system.file("extdata", "dem.tif", package = "gpkg"))
-#' v <- as.polygons(r, ext = TRUE)
+#' v <- terra::as.polygons(r, ext = TRUE)
 #' g <- geopackage(list(bbox = v))
 #' 
 #' gpkg_bbox(g, 'bbox')
 #' }
 gpkg_bbox <- function(x, table_name, geom_column = "geom") {
-  as.data.frame(gpkg_ogr_query(x, paste0(gsub("geom", geom_column,
+  as.data.frame(gpkg_ogr_query(x, paste(gsub("geom", geom_column,
                                               "SELECT 
                                                  ST_MinX(geom) AS xmin,
                                                  ST_MinY(geom) AS ymin,
                                                  ST_MaxX(geom) AS xmax,
                                                  ST_MaxY(geom) AS ymax
-                                               FROM ", table_name))))
+                                               FROM"), table_name)))
 }

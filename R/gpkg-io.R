@@ -102,7 +102,7 @@ gpkg_write <- function(x,
 }
 
 .gpkg_process_sources <- function(x, ...) {
-  if (!is.list(x)) {
+  if (!is.list(x) || is.data.frame(x)) {
     x <- list(x)
   }
   
@@ -290,6 +290,10 @@ gpkg_write <- function(x,
                                      ...) {
 
   gdal_options <- unique(c(gdal_options, .lut_gpkg_creation(...)))
+  
+  if (inherits(x, 'SpatVectorProxy')) {
+    x <- terra::query(x)
+  }
   
   if (!inherits(x, 'SpatVector')) {
     x <- terra::vect(x)

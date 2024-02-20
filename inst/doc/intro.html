@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Introduction to gpkg</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Introduction to gpkg</h1>
+
+
+
+<div id="background" class="section level2">
+<h2>Background</h2>
+<div id="what-is-a-geopackage" class="section level3">
+<h3>What is a GeoPackage?</h3>
+<p><a href="https://www.geopackage.org/">GeoPackage</a> is an open,
+standards-based, platform-independent, portable, self-describing,
+compact format for transferring geospatial information. The <a href="https://www.ogc.org/standard/geopackage/">GeoPackage Encoding
+Standard</a> describes a set of conventions for storing the following
+within an SQLite database:</p>
+<ul>
+<li><p>vector features</p></li>
+<li><p>tile matrix sets of imagery and raster maps at various
+scales</p></li>
+<li><p>attributes (non-spatial data)</p></li>
+<li><p>extensions</p></li>
+</ul>
+</div>
+</div>
+<div id="create-a-geopackage" class="section level2">
+<h2>Create a Geopackage</h2>
+<p><code>gpkg_write()</code> can handle a variety of different input
+types. Here we start by adding two DEM (GeoTIFF) files.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(gpkg)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(terra)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; terra 1.7.73</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>dem <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;extdata&quot;</span>, <span class="st">&quot;dem.tif&quot;</span>, <span class="at">package =</span> <span class="st">&quot;gpkg&quot;</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="fu">stopifnot</span>(<span class="fu">nchar</span>(dem) <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>gpkg_tmp <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.gpkg&quot;</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">file.exists</span>(gpkg_tmp))</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>  <span class="fu">file.remove</span>(gpkg_tmp)</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co"># write a gpkg with two DEMs in it</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="fu">gpkg_write</span>(</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>  dem,</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a>  <span class="at">destfile =</span> gpkg_tmp,</span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a>  <span class="at">RASTER_TABLE =</span> <span class="st">&quot;DEM1&quot;</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a>  <span class="at">FIELD_NAME =</span> <span class="st">&quot;Elevation&quot;</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a>)</span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="fu">gpkg_write</span>(</span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a>  dem,</span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>  <span class="at">destfile =</span> gpkg_tmp,</span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>  <span class="at">append =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a>  <span class="at">RASTER_TABLE =</span> <span class="st">&quot;DEM2&quot;</span>,</span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a>  <span class="at">FIELD_NAME =</span> <span class="st">&quot;Elevation&quot;</span>,</span>
+<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a>  <span class="at">NoData =</span> <span class="sc">-</span><span class="dv">9999</span></span>
+<span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="insert-vector-layers" class="section level2">
+<h2>Insert Vector Layers</h2>
+<p>We can also write vector data to GeoPackage. Here we use
+<code>gpkg_write()</code> to add a bounding box polygon layer derived
+from extent of <code>&quot;DEM1&quot;</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># add bounding polygon vector layer via named list</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>r <span class="ot">&lt;-</span> <span class="fu">gpkg_tables</span>(<span class="fu">geopackage</span>(gpkg_tmp))[[<span class="st">&#39;DEM1&#39;</span>]]</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>v <span class="ot">&lt;-</span> terra<span class="sc">::</span><span class="fu">as.polygons</span>(r, <span class="at">ext =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">gpkg_write</span>(<span class="fu">list</span>(<span class="at">bbox =</span> v), <span class="at">destfile =</span> gpkg_tmp, <span class="at">append =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+</div>
+<div id="insert-attribute-table" class="section level2">
+<h2>Insert Attribute Table</h2>
+<p>Similarly, <code>data.frame</code>-like objects (non-spatial
+“attributes”) can be written to GeoPackage.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>z <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">a =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="at">b =</span> LETTERS[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>])</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">gpkg_write</span>(<span class="fu">list</span>(<span class="at">myattr =</span> z), <span class="at">destfile =</span> gpkg_tmp, <span class="at">append =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+</div>
+<div id="read-a-geopackage" class="section level2">
+<h2>Read a GeoPackage</h2>
+<p><code>geopackage()</code> is a constructor that can create a simple
+container for working with geopackages from several types of inputs.
+Often you will have a <em>character</em> file path to a GeoPackage
+(.gpkg) file.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="fu">geopackage</span>(gpkg_tmp, <span class="at">connect =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>g</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt; &lt;geopackage&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; # of Tables: 20</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt;  </span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt;  DEM1, DEM2, bbox, gpkg_2d_gridded_coverage_ancillary,</span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt;  gpkg_2d_gridded_tile_ancillary, gpkg_contents, gpkg_extensions,</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt;  gpkg_geometry_columns, gpkg_metadata, gpkg_metadata_reference,</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt;  gpkg_ogr_contents, gpkg_spatial_ref_sys, gpkg_tile_matrix,</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt;  gpkg_tile_matrix_set, myattr, rtree_bbox_geom, rtree_bbox_geom_node,</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt;  rtree_bbox_geom_parent, rtree_bbox_geom_rowid, sqlite_sequence</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; &lt;SQLiteConnection&gt;</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt;   Path: /tmp/RtmpnDYffb/file2cdba26e44276.gpkg</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt;   Extensions: TRUE</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="fu">class</span>(g)</span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt; [1] &quot;geopackage&quot;</span></span></code></pre></div>
+<p>Other times you may have a list of tables and layers you want to be
+in a GeoPackage that does not exist yet.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>g2 <span class="ot">&lt;-</span> <span class="fu">geopackage</span>(<span class="fu">list</span>(<span class="at">dem =</span> r, <span class="at">bbox =</span> v))</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>g2</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt; &lt;geopackage&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; # of Tables: 18</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt;  </span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt;  bbox, dem, gpkg_2d_gridded_coverage_ancillary,</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt;  gpkg_2d_gridded_tile_ancillary, gpkg_contents, gpkg_extensions,</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt;  gpkg_geometry_columns, gpkg_metadata, gpkg_metadata_reference,</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt;  gpkg_ogr_contents, gpkg_spatial_ref_sys, gpkg_tile_matrix,</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt;  gpkg_tile_matrix_set, rtree_bbox_geom, rtree_bbox_geom_node,</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt;  rtree_bbox_geom_parent, rtree_bbox_geom_rowid, sqlite_sequence</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; &lt;SQLiteConnection&gt;</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt;   Path: /tmp/RtmpnDYffb/Rgpkg2cdba42f77d6e.gpkg</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt;   Extensions: TRUE</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="fu">class</span>(g2)</span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; [1] &quot;geopackage&quot;</span></span></code></pre></div>
+<p>Note that a temporary GeoPackage
+(/tmp/RtmpnDYffb/Rgpkg2cdba42f77d6e.gpkg) is automatically created when
+using the <code>geopackage(&lt;list&gt;)</code> constructor.</p>
+<p>You also may have a <em>DBIConnection</em> to a GeoPackage database
+already opened that you want to use. In any case (<em>character</em>,
+<em>list</em>, <em>SQLiteConnection</em>) there is an S3 method to
+facilitate creating the basic <em>geopackage</em> class provided by
+{gpkg}. All other methods are designed to be able to work smoothly with
+<em>geopackage</em> class input.</p>
+</div>
+<div id="inspect-contents-of-geopackage" class="section level2">
+<h2>Inspect Contents of GeoPackage</h2>
+<p>We can list the table names in a GeoPackage with
+<code>gpkg_list_tables()</code> and fetch pointers (SpatRaster,
+SpatVectorProxy, and lazy data.frame) to the data in them with
+<code>gpkg_table()</code>. We can check the status of the internal
+<code>geopackage</code> class <code>SQLiteConnection</code> with
+<code>gpkg_is_connected()</code> and disconnect it with
+<code>gpkg_disconnect()</code>.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="co"># enumerate tables</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">gpkg_list_tables</span>(g)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="co">#&gt;  [1] &quot;DEM1&quot;                               &quot;DEM2&quot;                              </span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="co">#&gt;  [3] &quot;bbox&quot;                               &quot;gpkg_2d_gridded_coverage_ancillary&quot;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;  [5] &quot;gpkg_2d_gridded_tile_ancillary&quot;     &quot;gpkg_contents&quot;                     </span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;  [7] &quot;gpkg_extensions&quot;                    &quot;gpkg_geometry_columns&quot;             </span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;  [9] &quot;gpkg_metadata&quot;                      &quot;gpkg_metadata_reference&quot;           </span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; [11] &quot;gpkg_ogr_contents&quot;                  &quot;gpkg_spatial_ref_sys&quot;              </span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; [13] &quot;gpkg_tile_matrix&quot;                   &quot;gpkg_tile_matrix_set&quot;              </span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; [15] &quot;myattr&quot;                             &quot;rtree_bbox_geom&quot;                   </span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; [17] &quot;rtree_bbox_geom_node&quot;               &quot;rtree_bbox_geom_parent&quot;            </span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; [19] &quot;rtree_bbox_geom_rowid&quot;              &quot;sqlite_sequence&quot;</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co"># inspect tables</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="fu">gpkg_tables</span>(g)</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; $DEM1</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; class       : SpatRaster </span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; dimensions  : 30, 31, 1  (nrow, ncol, nlyr)</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; resolution  : 0.008333333, 0.008333333  (x, y)</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; extent      : 6.008333, 6.266667, 49.69167, 49.94167  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a><span class="co">#&gt; coord. ref. : lon/lat WGS 84 (EPSG:4326) </span></span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a><span class="co">#&gt; source      : file2cdba26e44276.gpkg:DEM1 </span></span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a><span class="co">#&gt; varname     : file2cdba26e44276 </span></span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a><span class="co">#&gt; name        : DEM1 </span></span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="co">#&gt; min value   :  195 </span></span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt; max value   :  500 </span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-28"><a href="#cb6-28" tabindex="-1"></a><span class="co">#&gt; $DEM2</span></span>
+<span id="cb6-29"><a href="#cb6-29" tabindex="-1"></a><span class="co">#&gt; class       : SpatRaster </span></span>
+<span id="cb6-30"><a href="#cb6-30" tabindex="-1"></a><span class="co">#&gt; dimensions  : 30, 31, 1  (nrow, ncol, nlyr)</span></span>
+<span id="cb6-31"><a href="#cb6-31" tabindex="-1"></a><span class="co">#&gt; resolution  : 0.008333333, 0.008333333  (x, y)</span></span>
+<span id="cb6-32"><a href="#cb6-32" tabindex="-1"></a><span class="co">#&gt; extent      : 6.008333, 6.266667, 49.69167, 49.94167  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb6-33"><a href="#cb6-33" tabindex="-1"></a><span class="co">#&gt; coord. ref. : lon/lat WGS 84 (EPSG:4326) </span></span>
+<span id="cb6-34"><a href="#cb6-34" tabindex="-1"></a><span class="co">#&gt; source      : file2cdba26e44276.gpkg:DEM2 </span></span>
+<span id="cb6-35"><a href="#cb6-35" tabindex="-1"></a><span class="co">#&gt; varname     : file2cdba26e44276 </span></span>
+<span id="cb6-36"><a href="#cb6-36" tabindex="-1"></a><span class="co">#&gt; name        : DEM2 </span></span>
+<span id="cb6-37"><a href="#cb6-37" tabindex="-1"></a><span class="co">#&gt; min value   :  195 </span></span>
+<span id="cb6-38"><a href="#cb6-38" tabindex="-1"></a><span class="co">#&gt; max value   :  500 </span></span>
+<span id="cb6-39"><a href="#cb6-39" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-40"><a href="#cb6-40" tabindex="-1"></a><span class="co">#&gt; $myattr</span></span>
+<span id="cb6-41"><a href="#cb6-41" tabindex="-1"></a><span class="co">#&gt; # Source:   table&lt;myattr&gt; [10 x 2]</span></span>
+<span id="cb6-42"><a href="#cb6-42" tabindex="-1"></a><span class="co">#&gt; # Database: sqlite 3.45.0 [/tmp/RtmpnDYffb/file2cdba26e44276.gpkg]</span></span>
+<span id="cb6-43"><a href="#cb6-43" tabindex="-1"></a><span class="co">#&gt;        a b    </span></span>
+<span id="cb6-44"><a href="#cb6-44" tabindex="-1"></a><span class="co">#&gt;    &lt;int&gt; &lt;chr&gt;</span></span>
+<span id="cb6-45"><a href="#cb6-45" tabindex="-1"></a><span class="co">#&gt;  1     1 A    </span></span>
+<span id="cb6-46"><a href="#cb6-46" tabindex="-1"></a><span class="co">#&gt;  2     2 B    </span></span>
+<span id="cb6-47"><a href="#cb6-47" tabindex="-1"></a><span class="co">#&gt;  3     3 C    </span></span>
+<span id="cb6-48"><a href="#cb6-48" tabindex="-1"></a><span class="co">#&gt;  4     4 D    </span></span>
+<span id="cb6-49"><a href="#cb6-49" tabindex="-1"></a><span class="co">#&gt;  5     5 E    </span></span>
+<span id="cb6-50"><a href="#cb6-50" tabindex="-1"></a><span class="co">#&gt;  6     6 F    </span></span>
+<span id="cb6-51"><a href="#cb6-51" tabindex="-1"></a><span class="co">#&gt;  7     7 G    </span></span>
+<span id="cb6-52"><a href="#cb6-52" tabindex="-1"></a><span class="co">#&gt;  8     8 H    </span></span>
+<span id="cb6-53"><a href="#cb6-53" tabindex="-1"></a><span class="co">#&gt;  9     9 I    </span></span>
+<span id="cb6-54"><a href="#cb6-54" tabindex="-1"></a><span class="co">#&gt; 10    10 J    </span></span>
+<span id="cb6-55"><a href="#cb6-55" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb6-56"><a href="#cb6-56" tabindex="-1"></a><span class="co">#&gt; $bbox</span></span>
+<span id="cb6-57"><a href="#cb6-57" tabindex="-1"></a><span class="co">#&gt;  class       : SpatVectorProxy</span></span>
+<span id="cb6-58"><a href="#cb6-58" tabindex="-1"></a><span class="co">#&gt;  geometry    : polygons </span></span>
+<span id="cb6-59"><a href="#cb6-59" tabindex="-1"></a><span class="co">#&gt;  dimensions  : 1, 0  (geometries, attributes)</span></span>
+<span id="cb6-60"><a href="#cb6-60" tabindex="-1"></a><span class="co">#&gt;  extent      : 6.008333, 6.266667, 49.69167, 49.94167  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb6-61"><a href="#cb6-61" tabindex="-1"></a><span class="co">#&gt;  source      : file2cdba26e44276.gpkg (bbox)</span></span>
+<span id="cb6-62"><a href="#cb6-62" tabindex="-1"></a><span class="co">#&gt;  layer       : bbox </span></span>
+<span id="cb6-63"><a href="#cb6-63" tabindex="-1"></a><span class="co">#&gt;  coord. ref. : lon/lat WGS 84 (EPSG:4326)</span></span>
+<span id="cb6-64"><a href="#cb6-64" tabindex="-1"></a></span>
+<span id="cb6-65"><a href="#cb6-65" tabindex="-1"></a><span class="co"># inspect a specific table</span></span>
+<span id="cb6-66"><a href="#cb6-66" tabindex="-1"></a><span class="fu">gpkg_table</span>(g, <span class="st">&quot;myattr&quot;</span>, <span class="at">collect =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-67"><a href="#cb6-67" tabindex="-1"></a><span class="co">#&gt;     a b</span></span>
+<span id="cb6-68"><a href="#cb6-68" tabindex="-1"></a><span class="co">#&gt; 1   1 A</span></span>
+<span id="cb6-69"><a href="#cb6-69" tabindex="-1"></a><span class="co">#&gt; 2   2 B</span></span>
+<span id="cb6-70"><a href="#cb6-70" tabindex="-1"></a><span class="co">#&gt; 3   3 C</span></span>
+<span id="cb6-71"><a href="#cb6-71" tabindex="-1"></a><span class="co">#&gt; 4   4 D</span></span>
+<span id="cb6-72"><a href="#cb6-72" tabindex="-1"></a><span class="co">#&gt; 5   5 E</span></span>
+<span id="cb6-73"><a href="#cb6-73" tabindex="-1"></a><span class="co">#&gt; 6   6 F</span></span>
+<span id="cb6-74"><a href="#cb6-74" tabindex="-1"></a><span class="co">#&gt; 7   7 G</span></span>
+<span id="cb6-75"><a href="#cb6-75" tabindex="-1"></a><span class="co">#&gt; 8   8 H</span></span>
+<span id="cb6-76"><a href="#cb6-76" tabindex="-1"></a><span class="co">#&gt; 9   9 I</span></span>
+<span id="cb6-77"><a href="#cb6-77" tabindex="-1"></a><span class="co">#&gt; 10 10 J</span></span></code></pre></div>
+<p>Note that the <code>collect = TRUE</code> forces data be loaded into
+R memory for vector and attribute data; this is the difference in result
+object class of <em>SpatVectorProxy</em>/<em>SpatVector</em> and
+<em>tbl_SQLiteConnection</em>/<em>data.frame</em> for vector and
+attribute data, respectively.</p>
+<p><code>gpkg_collect()</code> is a helper method to call
+<code>gpkg_table(..., collect = TRUE)</code> for in-memory loading of
+specific tables.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">gpkg_collect</span>(g, <span class="st">&quot;DEM1&quot;</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;   id zoom_level tile_column tile_row     tile_data</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; 1  1          0           0        0 blob[3.98 kB]</span></span></code></pre></div>
+<p>Note that with grid data returned from <code>gpkg_collect()</code>
+you get a table result with the tile contents in a blob column of a
+<em>data.frame</em> instead of <em>SpatRaster</em> object.</p>
+<p>The inverse function of <code>gpkg_collect()</code> is
+<code>gpkg_tbl()</code> which always returns a
+<em>tbl_SQLiteConnection</em>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">gpkg_tbl</span>(g, <span class="st">&quot;gpkg_contents&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; # Source:   table&lt;gpkg_contents&gt; [4 x 10]</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; # Database: sqlite 3.45.0 [/tmp/RtmpnDYffb/file2cdba26e44276.gpkg]</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;   table_name data_type   identifier description last_change   min_x min_y  max_x</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;      &lt;chr&gt;       &lt;chr&gt;      &lt;chr&gt;       &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; 1 DEM1       2d-gridded… DEM1       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; 2 DEM2       2d-gridded… DEM2       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; 3 bbox       features    bbox       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; 4 myattr     attributes  myattr     &quot;&quot;          2024-02-19… -180    -90   180   </span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; # ℹ 2 more variables: max_y &lt;dbl&gt;, srs_id &lt;int&gt;</span></span></code></pre></div>
+<p>More on how to use this type of result next.</p>
+<div id="lazy-data-access" class="section level3">
+<h3>Lazy Data Access</h3>
+<p>There are several other methods that can be used for working with
+tabular data in a GeoPackage in a “lazy” fashion.</p>
+<div id="method-1-gpkg_table_pragma" class="section level4">
+<h4>Method 1: <code>gpkg_table_pragma()</code></h4>
+<p><code>gpkg_table_pragma()</code> is a low-frills
+<code>data.frame</code> result containing important table information,
+but not values. The <code>PRAGMA table_info()</code> is stored as a
+nested data.frame <code>table_info</code>. This representation has no
+dependencies beyond {RSQLite} and is efficient for inspection of table
+structure and attributes, though it is less useful for data
+analysis.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">gpkg_table_pragma</span>(g))</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt;                                      dsn table_name nrow table_info.cid</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#&gt; 1 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM1    1              0</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; 2 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM1    1              1</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; 3 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM1    1              2</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; 4 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM1    1              3</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; 5 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM1    1              4</span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; 6 /tmp/RtmpnDYffb/file2cdba26e44276.gpkg       DEM2    1              0</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt;   table_info.name table_info.type table_info.notnull table_info.dflt_value</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; 1              id         INTEGER                  0                  &lt;NA&gt;</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; 2      zoom_level         INTEGER                  1                  &lt;NA&gt;</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; 3     tile_column         INTEGER                  1                  &lt;NA&gt;</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; 4        tile_row         INTEGER                  1                  &lt;NA&gt;</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; 5       tile_data            BLOB                  1                  &lt;NA&gt;</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; 6              id         INTEGER                  0                  &lt;NA&gt;</span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt;   table_info.pk</span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt; 1             1</span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co">#&gt; 2             0</span></span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co">#&gt; 3             0</span></span>
+<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="co">#&gt; 4             0</span></span>
+<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a><span class="co">#&gt; 5             0</span></span>
+<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a><span class="co">#&gt; 6             1</span></span></code></pre></div>
+</div>
+<div id="method-2-gpkg_vect-and-gpkg_query" class="section level4">
+<h4>Method 2: <code>gpkg_vect()</code> and
+<code>gpkg_query()</code></h4>
+<p><code>gpkg_vect()</code> is a wrapper around
+<code>terra::vect()</code> you can use to create ‘terra’
+<code>SpatVector</code> objects from the tables found in a
+GeoPackage.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">gpkg_vect</span>(g, <span class="st">&#39;bbox&#39;</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt;  class       : SpatVector </span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt;  geometry    : polygons </span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="co">#&gt;  dimensions  : 1, 0  (geometries, attributes)</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;  extent      : 6.008333, 6.266667, 49.69167, 49.94167  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;  source      : file2cdba26e44276.gpkg (bbox)</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="co">#&gt;  coord. ref. : lon/lat WGS 84 (EPSG:4326)</span></span></code></pre></div>
+<p>The table of interest need not have a geometry column, but this
+method does not work on GeoPackage that contain only gridded data, and
+some layer in the GeoPackage must have some geometry.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">gpkg_vect</span>(g, <span class="st">&#39;gpkg_ogr_contents&#39;</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#&gt;  class       : SpatVector </span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#&gt;  geometry    : none </span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#&gt;  dimensions  : 0, 2  (geometries, attributes)</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co">#&gt;  extent      : 0, 0, 0, 0  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt;  source      : file2cdba26e44276.gpkg (SELECT)</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;  coord. ref. :  </span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="co">#&gt;  names       : table_name feature_count</span></span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt;  type        :      &lt;chr&gt;         &lt;int&gt;</span></span></code></pre></div>
+<p>The <em>SpatVectorProxy</em> is used for “lazy” references to of
+vector and attribute contents of a GeoPackage; this object for vector
+data is analogous to the <em>SpatRaster</em> for gridded data. The
+‘terra’ package provides “GDAL plumbing” for filter and query
+utilities.</p>
+<p><code>gpkg_query()</code> by default uses the ‘RSQLite’ driver, but
+the richer capabilities of OGR data sources can be harnessed with <a href="https://gdal.org/user/sql_sqlite_dialect.html">SQLite SQL
+dialect</a>. These additional features can be utilized with the
+<code>ogr=TRUE</code> argument to <code>gpkg_query()</code>, or
+<code>gpkg_ogr_query()</code> for short. This assumes that GDAL is built
+with support for SQLite (and ideally also with support for
+Spatialite).</p>
+<p>For example, we use built-in functions such as <code>ST_MinX()</code>
+to calculate summaries for <code>&quot;bbox&quot;</code> table, geometry column
+<code>&quot;geom&quot;</code>. In this case we expect the calculated quantities to
+match the coordinates/boundaries of the bounding box:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">gpkg_ogr_query</span>(g, <span class="st">&quot;SELECT </span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="st">                           ST_MinX(geom) AS xmin,</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="st">                           ST_MinY(geom) AS ymin, </span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="st">                           ST_MaxX(geom) AS xmax, </span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="st">                           ST_MaxY(geom) AS ymax </span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="st">                          FROM bbox&quot;</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="fu">as.data.frame</span>(res)</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt;       xmin     ymin     xmax     ymax</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a><span class="co">#&gt; 1 6.008333 49.69167 6.266667 49.94167</span></span></code></pre></div>
+</div>
+<div id="method-3-gpkg_rast" class="section level4">
+<h4>Method 3: <code>gpkg_rast()</code></h4>
+<p>Using <code>gpkg_rast()</code> you can quickly access references to
+all tile/gridded datasets in a GeoPackage.</p>
+<p>For example:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">gpkg_rast</span>(g)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; class       : SpatRaster </span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#&gt; dimensions  : 30, 31, 2  (nrow, ncol, nlyr)</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#&gt; resolution  : 0.008333333, 0.008333333  (x, y)</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#&gt; extent      : 6.008333, 6.266667, 49.69167, 49.94167  (xmin, xmax, ymin, ymax)</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; coord. ref. : lon/lat WGS 84 (EPSG:4326) </span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt; sources     : file2cdba26e44276.gpkg:DEM1  </span></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt;               file2cdba26e44276.gpkg:DEM2  </span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; varnames    : file2cdba26e44276 </span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt;               file2cdba26e44276 </span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; names       : DEM1, DEM2 </span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; min values  :  195,  195 </span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt; max values  :  500,  500</span></span></code></pre></div>
+</div>
+<div id="method-4-gpkg_table" class="section level4">
+<h4>Method 4: <code>gpkg_table()</code></h4>
+<p>With the <code>gpkg_table()</code> method you access a specific table
+(by name) and get a “lazy” <code>tibble</code> object referencing that
+table.</p>
+<p>This is achieved via {dplyr} and the {dbplyr} database connection to
+the GeoPackage via the {RSQLite} driver. The resulting object’s data can
+be used in more complex analyses by using other {dbplyr}/{tidyverse}
+functions.</p>
+<p>For example, we inspect the contents of the
+<code>gpkg_contents</code> table that contains critical information on
+the data contained in a GeoPackage.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">gpkg_table</span>(g, <span class="st">&quot;gpkg_contents&quot;</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#&gt; # Source:   table&lt;gpkg_contents&gt; [4 x 10]</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co">#&gt; # Database: sqlite 3.45.0 [/tmp/RtmpnDYffb/file2cdba26e44276.gpkg]</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt;   table_name data_type   identifier description last_change   min_x min_y  max_x</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;      &lt;chr&gt;       &lt;chr&gt;      &lt;chr&gt;       &lt;chr&gt;         &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; 1 DEM1       2d-gridded… DEM1       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="co">#&gt; 2 DEM2       2d-gridded… DEM2       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="co">#&gt; 3 bbox       features    bbox       &quot;&quot;          2024-02-19…    6.01  49.7   6.27</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co">#&gt; 4 myattr     attributes  myattr     &quot;&quot;          2024-02-19… -180    -90   180   </span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#&gt; # ℹ 2 more variables: max_y &lt;dbl&gt;, srs_id &lt;int&gt;</span></span></code></pre></div>
+<p>As a more complicated example we access the
+<code>gpkg_2d_gridded_tile_ancillary</code> table, and perform some data
+processing.</p>
+<p>We <code>dplyr::select()</code> <code>mean</code> and
+<code>std_dev</code> columns from the <code>dplyr::filter()</code>ed
+rows where <code>tpudt_name == &quot;DEM2&quot;</code>. Finally we materialize a
+<code>tibble</code> with <code>dplyr::collect()</code>:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">library</span>(dplyr, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="fu">gpkg_table</span>(g, <span class="st">&quot;gpkg_2d_gridded_tile_ancillary&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="fu">filter</span>(tpudt_name <span class="sc">==</span> <span class="st">&quot;DEM2&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="fu">select</span>(mean, std_dev) <span class="sc">%&gt;%</span> </span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  <span class="fu">collect</span>()</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 2</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt;    mean std_dev</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt;   &lt;dbl&gt;   &lt;dbl&gt;</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; 1  324.    58.5</span></span></code></pre></div>
+</div>
+</div>
+<div id="managing-connections" class="section level3">
+<h3>Managing Connections</h3>
+<p>Several helper methods are available for checking GeoPackage
+<code>SQLiteConnection</code> status, as well as connecting and
+disconnecting an existing <code>geopackage</code> object
+(<code>g</code>).</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># still connected</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">gpkg_is_connected</span>(g)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co"># disconnect geopackage</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="fu">gpkg_disconnect</span>(g)</span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co"># reconnect</span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a><span class="fu">gpkg_connect</span>(g)</span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a><span class="co">#&gt; &lt;geopackage&gt;</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="co">#&gt; # of Tables: 21</span></span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt;  </span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt;  DEM1, DEM2, bbox, dummy_feature, gpkg_2d_gridded_coverage_ancillary,</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#&gt;  gpkg_2d_gridded_tile_ancillary, gpkg_contents, gpkg_extensions,</span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="co">#&gt;  gpkg_geometry_columns, gpkg_metadata, gpkg_metadata_reference,</span></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co">#&gt;  gpkg_ogr_contents, gpkg_spatial_ref_sys, gpkg_tile_matrix,</span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="co">#&gt;  gpkg_tile_matrix_set, myattr, rtree_bbox_geom, rtree_bbox_geom_node,</span></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a><span class="co">#&gt;  rtree_bbox_geom_parent, rtree_bbox_geom_rowid, sqlite_sequence</span></span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a><span class="co">#&gt; --------------------------------------------------------------------------------</span></span>
+<span id="cb16-21"><a href="#cb16-21" tabindex="-1"></a><span class="co">#&gt; &lt;SQLiteConnection&gt;</span></span>
+<span id="cb16-22"><a href="#cb16-22" tabindex="-1"></a><span class="co">#&gt;   Path: /tmp/RtmpnDYffb/file2cdba26e44276.gpkg</span></span>
+<span id="cb16-23"><a href="#cb16-23" tabindex="-1"></a><span class="co">#&gt;   Extensions: TRUE</span></span>
+<span id="cb16-24"><a href="#cb16-24" tabindex="-1"></a></span>
+<span id="cb16-25"><a href="#cb16-25" tabindex="-1"></a><span class="co"># disconnect</span></span>
+<span id="cb16-26"><a href="#cb16-26" tabindex="-1"></a><span class="fu">gpkg_disconnect</span>(g)</span></code></pre></div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
