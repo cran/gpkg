@@ -1,77 +1,117 @@
 #' Read data from a GeoPackage
 #'
-#' Experimental: This function is being evaluated for its scope compared to other more general functions that perform similar operations (i.e. `gpkg_tables()`).
+#' This function creates a _geopackage_ object with references to all tables
+#' from the GeoPackage source specified in `x`. For a simple list of tables see
+#' `gpkg_tables()`.
 #'
 #' @param x Path to GeoPackage
-#' @param connect Connect to database and store connection in result? Default: `FALSE`
+#' @param connect Connect to database and store connection in result? Default:
+#'   `FALSE`
 #' @param quiet Hide printing of gdalinfo description to stdout. Default: `TRUE`
 #' @return A _geopackage_ object (list containing tables, grids and vector data)
 #' @export
+#' @seealso [gpkg_tables()]
 #' @keywords io
 gpkg_read <- function(x, connect = FALSE, quiet = TRUE) {
-  if (inherits(x, 'geopackage')) {
-    x <- x$dsn
+  
+  stopifnot(length(x) == 1)
+  
+  con <- .gpkg_connection_from_x(x)
+  
+  dsn <- path.expand(con@dbname)
+  res <- list()
+  contents <- gpkg_contents(con, create = TRUE)
+  
+  # read grids
+  if (!all(contents$data_type %in% c("attributes", "features"))) {
+    r <- try(terra::rast(dsn), silent = TRUE)
+    if (inherits(r, 'try-error')) {
+      grids <- list()
+    } else {
+      # convert to list of single-layer SpatRaster
+      grids <- as.list(r)
+      # assign raster table names
+      names(grids) <- names(r)
+    }
+  } else {
+    grids <- list()
   }
-  res <- lapply(x, function(xx) {
-    res <- list()
-    contents <- gpkg_contents(x, create = TRUE)
-    # read grids
-    if (!any(contents$data_type %in%  c("attributes", "features"))) {
-        r <- try(terra::rast(xx), silent = TRUE)
-        if (inherits(r, 'try-error')) {
-          grids <- list()
-        } else {
-          # convert to list of single-layer SpatRaster
-          grids <- as.list(r)
-          # assign raster table names
-          names(grids) <- names(r)
-        }
-    } else grids <- list()
-
-    # read vector layers (error if there aren't any)
-    if (any(contents$data_type == "features")) {
-        vects <- lapply(contents$table_name, function(xxx){
-            # create SpatVectorProxy
-            try(terra::vect(path.expand(xx), xxx, proxy = TRUE), silent = quiet)
-          })
-        names(vects) <- contents$table_name
-        vects <- vects[!vapply(vects, FUN.VALUE = logical(1), inherits, 'try-error')]
-    } else vects <- list()
-
-    # TODO: get table references
-    tables <- list()
-
-    # spatial results (grid+vect+tabular) in `tables`
-    res$tables <- c(grids, vects, tables)
-
-    # descriptions in `gdalinfo`
-    res$gdalinfo <- terra::describe(xx)
-
-    # verbose gdalinfo output
-    if (!quiet) cat(res$gdalinfo, sep = "\n")
-    res
-  })
-
-  res2 <- do.call('c', lapply(res, function(x) x$tables))
-  names(res2) <- do.call('c', lapply(res, function(x) names(x$tables)))
-  g <- geopackage(res2, dsn = x)
-  if (connect) {
-    gpkg_connect(g)
+  
+  # read vector layers (error if there aren't any)
+  if (any(contents$data_type == "features")) {
+    vects <- lapply(contents$table_name, function(xxx) {
+      # create SpatVectorProxy
+      try(terra::vect(dsn, xxx, proxy = TRUE), silent = quiet)
+    })
+    names(vects) <- contents$table_name
+    vects <- vects[!vapply(vects, FUN.VALUE = logical(1), inherits, 'try-error')]
+  } else {
+    vects <- list()
   }
-  g
+  
+  # get attribute tables
+  tables <- list()
+  lattr <- contents$data_type == "attributes"
+  if (any(lattr)) {
+    tables <- lapply(contents$table_name[lattr], function(y) {
+      gpkg_table_pragma(con, y)
+    })
+  }
+  
+  # spatial results (grid+vect+tabular) in `tables`
+  res$tables <- c(grids, vects, tables)
+  
+  # descriptions in `gdalinfo`
+  res$gdalinfo <- terra::describe(x)
+  
+  # verbose gdalinfo output
+  if (!quiet)
+    cat(res$gdalinfo, sep = "\n")
+  
+  if (attr(con, 'disconnect')) {
+    gpkg_disconnect(con)
+  }
+
+  obj <- .geopackage(dsn = dsn, connect = connect)
+  obj$tables <- res$tables
+  obj  
 }
 
 #' Write data to a GeoPackage
-#' @param x Vector of source file path(s), or a list containing one or more SpatRaster, SpatRasterCollection, or SpatVectorProxy objects.
+#' @param x Vector of source file path(s), or a list containing one or more
+#'   SpatRaster, SpatRasterCollection, or SpatVectorProxy objects.
 #' @param destfile Character. Path to output GeoPackage
-#' @param table_name Character. Default `NULL` name is derived from source file. Required if `x` is a _data.frame_.
-#' @param datatype Data type. Defaults to `"FLT4S"` for GeoTIFF files, `"INT2U"` otherwise. See documentation for `terra::writeRaster()`.
-#' @param append Append to existing data source? Default: `FALSE`. Setting `append=TRUE` overrides `overwrite=TRUE`
+#' @param table_name Character. Default `NULL` name is derived from source file.
+#'   Required if `x` is a _data.frame_.
+#' @param datatype Data type. Defaults to `"FLT4S"` for GeoTIFF files, `"INT2U"`
+#'   otherwise. See documentation for `terra::writeRaster()`.
+#' @param append Append to existing data source? Default: `FALSE`. Setting
+#'   `append=TRUE` overrides `overwrite=TRUE`
 #' @param overwrite Overwrite existing data source? Default `FALSE`.
 #' @param NoData Value to use as GDAL `NoData` Value
-#' @param gdal_options Additional `gdal_options`, passed to `terra::writeRaster()`
-#' @param ... Additional arguments are passed as GeoPackage "creation options." See Details.
-#' @details Additional, non-default GeoPackage creation options can be specified as arguments to this function. The full list of creation options can be viewed [here](https://gdal.org/drivers/raster/gpkg.html#creation-options) or in the `gpkg_creation_options` dataset. The name of the argument is `creation_option` and the value is selected from one of the elements of `values` for that option.
+#' @param gdal_options Additional `gdal_options`, passed to
+#'   `terra::writeRaster()`
+#' @param ... Additional arguments are passed as GeoPackage "creation options."
+#'   See Details.
+#' @details Additional, non-default GeoPackage creation options can be specified
+#'   as arguments to this function. The full list of creation options can be
+#'   viewed
+#'   [here](https://gdal.org/en/stable/drivers/raster/gpkg.html#creation-options)
+#'   or in the `gpkg_creation_options` dataset. The name of the argument is
+#'   `creation_option` and the value is selected from one of the elements of
+#'   `values` for that option.
+#'
+#'   If `x` contains source file paths, any comma-separated value (CSV) files
+#'   are treated as attribute data--even if they contain a geometry column.
+#'   GeoPackage source file paths are always treated as vector data sources, and
+#'   only one layer will be read from the source and written to the target. If
+#'   you need to read raster data from a GeoPackage first create a `SpatRaster`
+#'   from the layer of interest (see `gpkg_rast()`) before passing to
+#'   `gpkg_write()`. If you need to read multiple layers from any multi-layer
+#'   source read them individually into suitable objects. For a source
+#'   GeoPackage containing multiple layers you can use `gpkg_read()` (returns a
+#'   _geopackage_ object) or `gpkg_tables()` (returns a _list_ object).
+#'
 #' @return Logical. `TRUE` on successful write of at least one grid.
 #' @seealso [gpkg_creation_options]
 #' @export
@@ -102,20 +142,63 @@ gpkg_write <- function(x,
 }
 
 .gpkg_process_sources <- function(x, ...) {
+  
   if (!is.list(x) || is.data.frame(x)) {
     x <- list(x)
   }
   
-  # TODO: extend this; only intended for prototyping before general sln
-  
-  # objects with a file-based
+  # objects with a file source
   src_raster <- vapply(x, inherits, logical(1), c('SpatRaster', 'SpatRasterCollection'))
   src_vector <- vapply(x, inherits, logical(1), 'SpatVectorProxy')
   obj_vector <- vapply(x, inherits, logical(1), c('sf', 'SpatVector'))
   obj_attrib <- vapply(x, inherits, logical(1), 'data.frame')
-  pth_raster <- vapply(x, .is.file, logical(1),  "tif+|vrt|grd|png")
-  pth_vector <- vapply(x, .is.file, logical(1),  "shp|gpkg")
-  pth_attrib <- vapply(x, .is.file, logical(1),  "csv")
+  
+  # pth_raster <- vapply(x, .is.file, logical(1),  "tif+|vrt|grd|png")
+  # pth_vector <- vapply(x, .is.file, logical(1),  "shp|gpkg")
+  # pth_attrib <- vapply(x, .is.file, logical(1),  "csv")
+  pth_file <- vapply(x, .is.file, logical(1), ".*")
+  
+  # TODO: gdal is not used to read attributes,
+  #       provide support for some other tabular data formats?
+  #       arrow? openxlsx? 
+  pth_attrib <- pth_file & vapply(x, .is.file, logical(1),  "csv")
+  pth_raster <- rep(FALSE, length(x))  
+  pth_vector <- rep(FALSE, length(x))
+  
+  if (any(pth_file)) {
+    if (!requireNamespace("gdalraster")) {
+      stop("package 'gdalraster' is required to auto-detect GDAL drivers needed to read from arbitrary file paths", call. = FALSE)
+    }
+    
+    gdal_drv <- vapply(x, function(y) {
+      if (!is.character(y)) {
+        res <- ""
+      } else {
+        res <- gdalraster::identifyDriver(y)
+        # message(res, ":", y)
+        if (length(res) == 0) {
+          res <- ""
+        }
+        res
+      }
+    }, character(1))
+    
+    drv <- gdalraster::gdal_formats()
+    drm <- match(gdal_drv, drv$short_name)
+    
+    pth_raster <- pth_file & drv$raster[drm]
+    
+    # TODO: use gdalraster::inspectDataset()
+    # TODO: how to handle GPKG as a raster and vector source?
+    pth_raster[gdal_drv == "GPKG"] <- FALSE
+    
+    pth_vector <- pth_file & drv$vector[drm]
+    
+    # TODO: handling of CSV files as attributes/without GDAL
+    #       filter drivers to subset that terra can readwrite
+    pth_vector[gdal_drv == "CSV"] <- FALSE
+  }
+  
   
   # classify list of object input  grid, features, attributes
   #  - each processing function handles local objects and/or file paths
@@ -133,16 +216,14 @@ gpkg_write <- function(x,
     if (!inherits(ldsn[[x]], 'data.frame')) {
       ldsn[[x]] <- utils::read.csv(ldsn[[x]])
     }
-    g <- geopackage(destfile, connect = TRUE)
-    on.exit(gpkg_disconnect(g))
-    x <- gpkg_write_attributes(
-      g,
+    y <- gpkg_write_attributes(
+      destfile,
       ldsn[[x]],
       table_name = x,
       overwrite = overwrite,
       append = append
     )
-    return(inherits(x, 'try-error'))
+    return(inherits(y, 'try-error'))
   })
 }
     

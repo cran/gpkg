@@ -1,7 +1,9 @@
 ## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  eval = requireNamespace("terra", quietly = TRUE) && 
+    requireNamespace("dbplyr", quietly = TRUE)
 )
 
 ## -----------------------------------------------------------------------------
@@ -34,13 +36,13 @@ gpkg_write(
 
 ## -----------------------------------------------------------------------------
 # add bounding polygon vector layer via named list
-r <- gpkg_tables(geopackage(gpkg_tmp))[['DEM1']]
+r <- gpkg_tables(gpkg_tmp)[['DEM1']]
 v <- terra::as.polygons(r, ext = TRUE)
-gpkg_write(list(bbox = v), destfile = gpkg_tmp, append = TRUE)
+gpkg_write(list(bbox = v), destfile = gpkg_tmp)
 
 ## -----------------------------------------------------------------------------
 z <- data.frame(a = 1:10, b = LETTERS[1:10])
-gpkg_write(list(myattr = z), destfile = gpkg_tmp, append = TRUE)
+gpkg_write(list(myattr = z), destfile = gpkg_tmp)
 
 ## -----------------------------------------------------------------------------
 g <- geopackage(gpkg_tmp, connect = TRUE)
@@ -66,7 +68,15 @@ gpkg_table(g, "myattr", collect = TRUE)
 gpkg_collect(g, "DEM1")
 
 ## -----------------------------------------------------------------------------
-gpkg_tbl(g, "gpkg_contents")
+tb <- gpkg_tbl(g, "gpkg_contents")
+tb
+
+## -----------------------------------------------------------------------------
+gpkg_connection(g)@ptr
+gpkg_connection(tb)@ptr
+
+## -----------------------------------------------------------------------------
+gpkg_contents(g)
 
 ## -----------------------------------------------------------------------------
 head(gpkg_table_pragma(g))
@@ -104,7 +114,7 @@ gpkg_table(g, "gpkg_2d_gridded_tile_ancillary") %>%
 # still connected
 gpkg_is_connected(g)
 
-# disconnect geopackage
+# disconnect 
 gpkg_disconnect(g)
 
 # reconnect

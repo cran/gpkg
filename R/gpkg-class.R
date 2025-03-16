@@ -1,7 +1,15 @@
 # GeoPackage class
 
 #' `geopackage` Constructors
-#'
+#' 
+#' `geopackage()` (alias `gpkg()`) creates an S3 object of class `geopackage`.
+#' 
+#' Several `geopackage()` methods are provided:
+#'  - `geopackage(x=<list>)`: creates a new GeoPackage object from a heterogeneous list of inputs
+#'  - `geopackage(x=<missing>)`: creates a new empty GeoPackage file in `tmpdir`
+#'  - `geopackage(x=<SQLiteConnection>)`: creates a GeoPackage object from an existing _SQLite_ connection
+#'  - `geopackage(x=<character>)`: creates a GeoPackage object from a path to an existing GeoPackage file
+#'  
 #' @param x list of SpatVectorProxy, SpatRaster, data.frame; or a character containing path to a GeoPackage file; or an SQLiteConnection to a GeoPackage. If missing, a temporary file with .gpkg extension is created in `tempdir`.
 #' @param dsn Path to GeoPackage File (may not exist)
 #' @param pattern used only when `x` is missing (creating temporary file GeoPackage), passed to `tempfile()`; default `"Rgpkg"`
@@ -21,18 +29,14 @@ geopackage.list <- function(x, dsn = NULL, connect = FALSE, ...) {
   if (is.null(dsn)) {
     dsn <- tempfile("Rgpkg", fileext = ".gpkg")
   }
-  
   if (is.character(dsn) && !file.exists(dsn)) {
-    gpkg_write(x, destfile = dsn, ...)
-    dsn <- .gpkg_connection_from_x(dsn)
+    res <- gpkg_write(x, destfile = dsn, ...)
   } else {
     if (!all(names(x) %in% gpkg_list_tables(dsn))) {
       stop("File (", dsn, ") already exists! `geopackage(<list>)` should only be used when the GeoPackage `dsn` needs to be created. See the `geopackage(<character>)` and `geopackage(<SQLiteConnection>)` methods (without list input) to use existing databases.", call. = FALSE)
     }
   }
-  obj <- .geopackage(dsn = dsn, connect = connect, ...)
-  obj$tables <- x
-  obj
+  geopackage(dsn)
 }
 
 #' @rdname geopackage-class
@@ -40,7 +44,9 @@ geopackage.list <- function(x, dsn = NULL, connect = FALSE, ...) {
 geopackage.missing <- function(x, connect = FALSE, pattern = "Rgpkg", tmpdir = tempdir(), ...) {
   tf <- tempfile(pattern = pattern, tmpdir = tmpdir, fileext = ".gpkg")
   tft <- try(file.create(tf))
-  if (inherits(tft, 'try-error')) stop('could not create temporary geopackage in ', tmpdir, call. = FALSE)
+  if (inherits(tft, 'try-error')) 
+    stop('could not create temporary geopackage in ', 
+         tmpdir, call. = FALSE)
   obj <- .geopackage(dsn = tf, connect = connect, ...)
   obj$tables <- list()
   obj
@@ -65,6 +71,12 @@ geopackage.character <- function(x, connect = FALSE, ...) {
   gpkg_read(x, connect = connect, ...)
 }
 
+#' @export
+#' @rdname geopackage-class
+gpkg <- function(x, ...) {
+  geopackage(x, ...)
+}
+
 # basic geopackage structure
 .geopackage <- function(dsn = NULL, connect = FALSE, ...) {
   con <- NULL
@@ -77,6 +89,9 @@ geopackage.character <- function(x, connect = FALSE, ...) {
     if (requireNamespace("RSQLite", quietly = TRUE)) {
       con <- RSQLite::dbConnect(RSQLite::SQLite(), dsn)
     } else stop('package `RSQLite` is required to connect to GeoPackages', call. = FALSE)
+  }
+  if (!connect && inherits(con, 'SQLiteConnection') && isTRUE(attr(con, 'disconnect'))) {
+    gpkg_disconnect(con)
   }
   obj <- structure(list(
     tables = list(),
@@ -100,3 +115,29 @@ print.geopackage <- function(x, ...) {
     show(x$env$con)
   }
 }
+
+#' @export
+`[.geopackage` <- function(x, i) {
+  x$tables[i]
+}
+
+#' @export
+`[[.geopackage` <- function(x, i) {
+  x$tables[[i]]
+}
+
+#' @export
+`[<-.geopackage` <- function(x, i, value) {
+  x$tables[i] <- value
+}
+
+#' @export
+`[[<-.geopackage` <- function(x, i, value) {
+  x$tables[[i]] <- value
+}
+
+# TODO: consider what "names" should be exposed to user, in light of [[]]
+#       consider defining $ method (how will access the env/table components internally?) 
+# names.geopackage <- function(x) {
+#   gpkg_list_tables(x)
+# }

@@ -32,9 +32,9 @@ gpkg_ogr_contents <- function(x) {
 
 
 #' List Tables Registered in a GeoPackage `gpkg_contents`
-#' 
+#'
 #' Get a vector of grid, feature and attribute table names registered in GeoPackage.
-#' 
+#'
 #' @param x A _geopackage_ object, path to a GeoPackage or an _SQLiteConnection_
 #' @param ogr Intersect `gpkg_contents` table name result with OGR tables that are listed in `gpkg_ogr_contents`? Default: `FALSE`
 #' @export
@@ -42,7 +42,7 @@ gpkg_ogr_contents <- function(x) {
 #' @seealso [gpkg_contents()] [gpkg_list_tables()]
 gpkg_list_contents <- function(x, ogr = FALSE) {
   y <- gpkg_contents(x)$table_name
-  if (is.null(y)) 
+  if (is.null(y))
     y <- character()
   if (isTRUE(ogr)) {
     z <- gpkg_ogr_contents(x)$table_name
@@ -54,17 +54,38 @@ gpkg_list_contents <- function(x, ogr = FALSE) {
 
 #' Add, Remove, Update and Create `gpkg_contents` table and records
 #' @description `gpkg_add_contents()`: Add a record to `gpkg_contents`
+#'
 #' @param x A _geopackage_
 #' @param table_name Name of table to add or remove record for in _gpkg_contents_
-#' @param description Default `""`
-#' @param template Default `NULL` uses global EPSG:4326 with bounds -180,-90:180,90
+#' @param data_type _character_. One of: `2d-gridded-coverage`, `"features"`, `"attributes"`. Default `NULL` will attempt to auto-detect table type based on `gpkg_table_pragma()` information; falls back to `"attributes"` if raster or vector data are not detected.
+#' @param description Default: `""`
+#' @param template Deprecated. A list containing elements `"srsid"` and `"ext"`.
+#' @param srs_id _integer_. Spatial Reference System ID. Must be defined in `gpkg_spatial_ref_sys` table.
+#' @param ext _numeric_. A numeric vector of length four specifying the bounding box extent.
 #' @param query_string _logical_. Return SQLite statement rather than executing it? Default: `FALSE`
+#'
 #' @return logical. TRUE on successful execution of SQL statements.
 #' @rdname gpkg-contents
 #' @export
-gpkg_add_contents <- function(x, table_name, description = "", template = NULL, query_string = FALSE) {
-  dt <- NULL
+gpkg_add_contents <- function(x, table_name, data_type = NULL, description = "", srs_id = NULL, ext = NULL, template = NULL, query_string = FALSE) {
+  
+  con <- .gpkg_connection_from_x(x)
+  dt <- data_type
+  
+  if (!missing(srs_id) && !is.null(srs_id)) {
+    if (!length(srs_id) == 1 || !is.integer(as.integer(srs_id)))
+      stop("`srs_id` should be an integer of length 1")
+    cr <- srs_id
+  }
+
+  if (!missing(ext) && !is.null(ext)) {
+    if (!length(ext) == 4 || !is.numeric(ext))
+      stop("`ext` should be a numeric vector of length 4")
+    ex <- ext
+  }
+
   if (!missing(template) && !is.null(template)) {
+    .Deprecated(msg = "`template` argument is deprecated, use `ext` and `srs_id` arguments directly")
     # template as a list
     if (is.list(template) && all(c("ext", "srsid") %in% names(template))) {
       ex <- template$ext
@@ -75,12 +96,12 @@ gpkg_add_contents <- function(x, table_name, description = "", template = NULL, 
       # if (!requireNamespace("terra", quietly = TRUE)) {
       #   stop("package `terra` is required to add contents with a custom extent", call. = FALSE)
       # }
-      # 
+      #
       # # convert sf object to SpatVector
       # if (inherits(template, 'sf')) {
       #   template <- terra::vect(template)
       # }
-      # 
+      #
       # # template as terra object
       # if (inherits(template, c("SpatRaster", "SpatVector", "SpatVectorProxy"))){
       #   ex <- as.numeric(terra::ext(template))
@@ -91,9 +112,9 @@ gpkg_add_contents <- function(x, table_name, description = "", template = NULL, 
     ex <- c(-180, -90, 180, 90)
     cr <- 4326
   }
-  
+
   if (is.null(dt)) {
-    gtp <- try(gpkg_table_pragma(x, table_name), silent = TRUE)
+    gtp <- try(suppressWarnings(gpkg_table_pragma(con, table_name)), silent = TRUE)
     if (inherits(gtp, 'try-error')) {
       gtp <- NULL
     }
@@ -104,10 +125,11 @@ gpkg_add_contents <- function(x, table_name, description = "", template = NULL, 
       # has tile information: 2D coverage
       dt <- "2d-gridded-coverage"
     } else if (any(c("POINT", "CURVE","LINESTRING", "SURFACE",
-                     "CURVEPOLYGON", "POLYGON", "GEOMETRYCOLLECTION",
-                     "MULTISURFACE", "MULTIPOLYGON", "MULTICURVE", 
+                     "CURVEPOLYGON", "POLYGON",
+                     "GEOMETRY", "GEOMETRYCOLLECTION",
+                     "MULTISURFACE", "MULTIPOLYGON", "MULTICURVE",
                      "MULTILINESTRING", "MULTIPOINT")
-                   %in% gtp$table_info.type)) {
+                   %in% toupper(gtp$table_info.type))) {
       # has a geometry column: vector geometry
       dt <- "features"
     } else {
@@ -115,15 +137,16 @@ gpkg_add_contents <- function(x, table_name, description = "", template = NULL, 
       dt <- "attributes"
     }
   }
-  
-  # create gpkg_contents empty table if needed
-  if (!"gpkg_contents" %in% gpkg_list_tables(x)) {
-    x <- gpkg_create_contents(x)
+
+  # create empty gpkg_contents table if needed
+  if (!"gpkg_contents" %in% gpkg_list_tables(con)) {
+    x <- gpkg_create_contents(con)
   }
+  
   q <- paste0(
-    "INSERT INTO gpkg_contents (table_name, data_type, identifier, 
+    "INSERT INTO gpkg_contents (table_name, data_type, identifier,
                                   description, last_change,
-                                  min_x, min_y, max_x, max_y, srs_id) 
+                                  min_x, min_y, max_x, max_y, srs_id)
        VALUES ('",
           table_name ,
           "', '", dt, "', '",
@@ -133,18 +156,22 @@ gpkg_add_contents <- function(x, table_name, description = "", template = NULL, 
           "','",
           strftime(Sys.time(), '%Y-%m-%dT%H:%M:%OS3Z'),
           "', ", ex[1], ", ", ex[2], ", ",
-          ex[3], ", ", ex[4], ", ", 
+          ex[3], ", ", ex[4], ", ",
           cr,"
                             );")
-  
+
   if (query_string) {
     return(q)
   }
-  
-  # append to gpkg_contents
-  x <- gpkg_execute(x, q)
 
-  !inherits(x, 'try-error')
+  # append to gpkg_contents
+  res <- gpkg_execute(con, q)
+
+  if (attr(con, 'disconnect')) {
+    gpkg_disconnect(con)
+  }
+  
+  !inherits(res, 'try-error')
 }
 
 #' @description `gpkg_update_contents()`: Add and remove `gpkg_contents` records to match existing tables
@@ -163,18 +190,18 @@ gpkg_update_contents <- function(x) {
   tables_nonstandard <- tables[!grepl("^gpkg_.*|rtree_.*|gpkgext_|sqlite_sequence", tables)]
   todo <- tables_nonstandard[!tables_nonstandard %in% contents$table_name]
   torem <- contents$table_name[!contents$table_name %in% tables]
-  
-  # create gpkg_contents records, 
+
+  # create gpkg_contents records,
   # TODO: set extent via template?
   for (y in todo) {
     gpkg_add_contents(x, table_name = y, description = y)
   }
-  
+
   # remove gpkg_contents records
   for (y in torem) {
     gpkg_delete_contents(x, table_name = y)
   }
-  
+
   !inherits(x, 'try-error')
 }
 
@@ -183,7 +210,7 @@ gpkg_update_contents <- function(x) {
 #' @export
 gpkg_delete_contents <- function(x, table_name, query_string = FALSE) {
   q <- paste0("DELETE FROM gpkg_contents WHERE table_name = '", table_name, "'")
-  
+
   if (query_string) {
     return(q)
   }
@@ -208,7 +235,7 @@ gpkg_create_contents <- function(x, query_string = FALSE) {
           srs_id INTEGER,
           CONSTRAINT fk_gc_r_srs_id FOREIGN KEY (srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)
         )"
-  
+
   if (query_string) {
     return(q)
   }
@@ -217,19 +244,19 @@ gpkg_create_contents <- function(x, query_string = FALSE) {
 }
 
 # TODO: GDAL generally creates this as needed; consider add/update/delete/create
-# gpkg_create_ogr_contents <- function(x, dummy = FALSE) {
-#   res <- gpkg_execute(x,  "CREATE TABLE gpkg_ogr_contents (
-#           table_name TEXT NOT NULL PRIMARY KEY,
-#           feature_count INTEGER
-#         )")
-#   !inherits(res, 'try-error')
-# }
-# 
-# gpkg_add_ogr_contents <- function(x, table_name, feature_count) {
-#   res <- gpkg_execute(x, paste0(
-#     "INSERT INTO gpkg_ogr_contents (table_name, feature_count)
-#        VALUES ('", table_name, "', ", feature_count, ");"
-#   ))
-#   !inherits(res, 'try-error')
-# }
+gpkg_create_ogr_contents <- function(x, dummy = FALSE) {
+  res <- gpkg_execute(x,  "CREATE TABLE gpkg_ogr_contents (
+          table_name TEXT NOT NULL PRIMARY KEY,
+          feature_count INTEGER
+        )")
+  !inherits(res, 'try-error')
+}
+
+gpkg_add_ogr_contents <- function(x, table_name, feature_count) {
+  res <- gpkg_execute(x, paste0(
+    "INSERT INTO gpkg_ogr_contents (table_name, feature_count)
+       VALUES ('", table_name, "', ", feature_count, ");"
+  ))
+  !inherits(res, 'try-error')
+}
 

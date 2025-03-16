@@ -2,28 +2,37 @@
 % Please edit documentation in R/gpkg-table.R
 \name{gpkg_table_pragma}
 \alias{gpkg_table_pragma}
-\alias{gpkg_table_pragma.character}
-\alias{gpkg_table_pragma.SQLiteConnection}
-\alias{gpkg_table_pragma.geopackage}
+\alias{gpkg_table_pragma.default}
 \alias{gpkg_table}
 \alias{gpkg_table.default}
 \alias{gpkg_collect}
 \alias{gpkg_tbl}
 \alias{gpkg_rast}
 \alias{gpkg_vect}
+\alias{gpkg_sf}
 \title{Lazy Access to Tables by Name}
 \usage{
 gpkg_table_pragma(x, table_name = NULL, ...)
 
-\method{gpkg_table_pragma}{character}(x, table_name = NULL, ...)
+\method{gpkg_table_pragma}{default}(x, table_name = NULL, ...)
 
-\method{gpkg_table_pragma}{SQLiteConnection}(x, table_name, ...)
+gpkg_table(
+  x,
+  table_name,
+  collect = FALSE,
+  column_names = "*",
+  query_string = FALSE,
+  ...
+)
 
-\method{gpkg_table_pragma}{geopackage}(x, table_name = NULL, ...)
-
-gpkg_table(x, table_name, collect = FALSE, query_string = FALSE, ...)
-
-\method{gpkg_table}{default}(x, table_name, collect = FALSE, query_string = FALSE, ...)
+\method{gpkg_table}{default}(
+  x,
+  table_name,
+  collect = FALSE,
+  column_names = "*",
+  query_string = FALSE,
+  ...
+)
 
 gpkg_collect(x, table_name, query_string = FALSE, ...)
 
@@ -32,6 +41,8 @@ gpkg_tbl(x, table_name, ...)
 gpkg_rast(x, table_name = NULL, ...)
 
 gpkg_vect(x, table_name, ...)
+
+gpkg_sf(x, table_name, ...)
 }
 \arguments{
 \item{x}{A \emph{geopackage} object or character path to GeoPackage file}
@@ -41,6 +52,8 @@ gpkg_vect(x, table_name, ...)
 \item{...}{Additional arguments. In \code{gpkg_table()} arguments in \code{...} are passed to \code{dplyr::tbl()}. For \code{gpkg_table_pragma()}, \code{...} arguments are (currently) not used. For \code{gpkg_rast()} additional arguments are passed to \code{terra::rast()}. For \code{gpkg_vect()} additional arguments (such as \code{proxy=TRUE}) are passed to \code{terra::vect()}.}
 
 \item{collect}{\emph{logical}. Materialize a data.frame object in memory? Default: \code{FALSE} requires 'dbplyr' package. \code{TRUE} uses 'RSQLite'.}
+
+\item{column_names}{\emph{character}. Used only when \code{collect=TRUE}. A \emph{character} vector of column names to select from \code{table_name}.}
 
 \item{query_string}{\emph{logical}. Return SQLite query rather than executing it? Default: \code{FALSE}}
 }
@@ -54,19 +67,26 @@ gpkg_vect(x, table_name, ...)
 \code{gpkg_rast()}: A 'terra' object of class \emph{SpatRaster}
 
 \code{gpkg_vect()}: A 'terra' object of class \emph{SpatVector} (may not contain geometry columns)
+
+\verb{gpkg_sf())}: An \emph{sf-tibble} object of class \code{"sf"}, \code{"tbl_df"}. If the table contains no geometry column the result is a \code{"tbl_df"}.
 }
 \description{
 \code{gpkg_table_pragma()}: Get information on a table in a GeoPackage (without returning the whole table).
 
-\code{gpkg_table()}: access a specific table (by name) and get a "lazy" \code{tibble} object referencing that table
+\code{gpkg_table()}: Access a specific table (by name) and get a \emph{tbl_SQLiteConnection} object referencing that table
 
-\code{gpkg_collect()}: alias for \code{gpkg_table(..., collect=TRUE)}
+\code{gpkg_collect()}: Alias for \code{gpkg_table(..., collect=TRUE)}
 
-\code{gpkg_tbl()}: shorthand for \code{gpkg_table(..., collect=FALSE)}(default) that always returns a 'dplyr' object.
+\code{gpkg_tbl()}: Alias for \code{gpkg_table(..., collect=FALSE)}(default) that \emph{always} returns a \emph{tbl_SQLiteConnection} object.
+
+\code{gpkg_rast()}: Get a \emph{SpatRaster} object corresponding to the specified \code{table_name}
+
+\code{gpkg_vect()}: Get a \emph{SpatVector} object corresponding to the specified \code{table_name}
+
+\code{gpkg_sf()}: Get a \emph{sf-tibble} object corresponding to the specified \code{table_name}
 }
 \examples{
-\dontshow{if (!inherits(try(requireNamespace("RSQLite", quietly = TRUE)), 'try-error') &&!inherits(try(requireNamespace("dbplyr", quietly = TRUE)), 'try-error') && !inherits(try(requireNamespace("terra", quietly = TRUE)), 'try-error')) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-\dontshow{\}) # examplesIf}
+\dontshow{if (requireNamespace("RSQLite", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("terra", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 
 tf <- tempfile(fileext = ".gpkg")
 
@@ -83,12 +103,12 @@ gpkg_write(r,
            RASTER_TABLE = "DEM2",
            FIELD_NAME = "Elevation")
 
-g <- geopackage(tf)
+g <- geopackage(tf, connect = TRUE)
 
 # inspect gpkg_contents table
 gpkg_table(g, "gpkg_contents")
 
-gpkg_vect(g, "gpkg_contents")
+gpkg_contents(g)
 
 # materialize a data.frame from gpkg_2d_gridded_tile_ancillary
 library(dplyr, warn.conflicts = FALSE)
@@ -99,4 +119,5 @@ gpkg_table(g, "gpkg_2d_gridded_tile_ancillary") \%>\%
   dplyr::collect()
 
 gpkg_disconnect(g)
+\dontshow{\}) # examplesIf}
 }

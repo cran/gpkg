@@ -10,7 +10,10 @@
 gpkg_add_contents(
   x,
   table_name,
+  data_type = NULL,
   description = "",
+  srs_id = NULL,
+  ext = NULL,
   template = NULL,
   query_string = FALSE
 )
@@ -26,9 +29,15 @@ gpkg_create_contents(x, query_string = FALSE)
 
 \item{table_name}{Name of table to add or remove record for in \emph{gpkg_contents}}
 
-\item{description}{Default \code{""}}
+\item{data_type}{\emph{character}. One of: \verb{2d-gridded-coverage}, \code{"features"}, \code{"attributes"}. Default \code{NULL} will attempt to auto-detect table type based on \code{gpkg_table_pragma()} information; falls back to \code{"attributes"} if raster or vector data are not detected.}
 
-\item{template}{Default \code{NULL} uses global EPSG:4326 with bounds -180,-90:180,90}
+\item{description}{Default: \code{""}}
+
+\item{srs_id}{\emph{integer}. Spatial Reference System ID. Must be defined in \code{gpkg_spatial_ref_sys} table.}
+
+\item{ext}{\emph{numeric}. A numeric vector of length four specifying the bounding box extent.}
+
+\item{template}{Deprecated. A list containing elements \code{"srsid"} and \code{"ext"}.}
 
 \item{query_string}{\emph{logical}. Return SQLite statement rather than executing it? Default: \code{FALSE}}
 }

@@ -1,3 +1,44 @@
+# gpkg 0.0.12
+ 
+ - Major cleanup and more consistent use of internal _SQLiteConnection_ usage to ensure open connections don't get garbage collected
+ 
+ - Added `gpkg_disconnect()` convenience methods for `tbl_SQLiteConnection` and `src_SQLiteConnection` 
+ 
+ - Added `gpkg_connection()` a user-level function for accessing or creating SQLiteConnections given a `geopackage` object or a path to GeoPackage file
+
+# gpkg 0.0.11
+
+ - Added `[` and `[[` methods for accessing/replacing tables in a `geopackage` object
+ 
+ - Replaced `vapour` functionality for driver detection with `gdalraster` equivalents
+
+# gpkg 0.0.10
+
+ - Added `gpkg()` alias for `geopackage()`
+ 
+ - Added `gpkg_create_geometry_columns()`, `gpkg_geometry_columns()` and `gpkg_add_geometry_columns()`
+ 
+ - Added `gpkg_sf()` convenience method for creating an _sf_ object from tables. Defaults to a _sf_ _tbl_df_, use `as_tibble=FALSE` for _data.frame_.
+ 
+ - Now using new `gpkg_create_spatial_ref_sys()` function internally to ensure GeoPackages have the minimum required tables
+ 
+ - `gpkg_collect()` and `gpkg_table(collect=TRUE)` gain support for selecting a subset of columns of interest
+ 
+ - Deprecate `gpkg_create_dummy_features()` function name and replace with `gpkg_create_empty_features()`
+ 
+ - Deprecate `gpkg_contents(template=)` argument, provide new arguments for each data element (SRS ID and bounding box)
+
+# gpkg 0.0.9
+
+ - Implemented GDAL driver detection for file paths via {vapour} for #15
+ 
+ - Implemented functions for creating `gpkg_spatial_ref_sys` table and adding or removing spatial reference system records:
+   - `gpkg_create_spatial_ref_sys()`, `gpkg_add_spatial_ref_sys()` `gpkg_delete_spatial_ref_sys()`, `gpkg_list_srs()`
+
+ - Implemented basic `gpkg_validate()` routine (will be expanded)
+   - Checks that `gpkg_contents` and `gpkg_spatial_ref_sys` exist
+   - Checks that at least one tile or vector dataset (with at least 0 rows) is in the database and `gpkg_contents`
+ 
 # gpkg 0.0.8
 
  - Added `gpkg_create_spatial_view()` for creating spatial views, which are dynamic layers accessible as if they were typical static geometry layers (for #6).
@@ -25,7 +66,7 @@
 
  - Fixed bug in `gpkg_tables()` when multiple attribute tables were present.
  
- - Added `gpkg_ogr_query()` (and `ogr` argument to `gpkg_query()`) to support querying OGR data sources using a 'terra' _SpatVectorProxy_ back end. This allows for use of GeoPackage-specific SQL functions and the OGR/SQLite dialects: <https://gdal.org/user/sql_sqlite_dialect.html> and <https://gdal.org/user/ogr_sql_dialect.html>; requires latest 'terra' (1.7-33+)
+ - Added `gpkg_ogr_query()` (and `ogr` argument to `gpkg_query()`) to support querying OGR data sources using a 'terra' _SpatVectorProxy_ back end. This allows for use of GeoPackage-specific SQL functions and the OGR/SQLite dialects: <https://gdal.org/en/stable/user/sql_sqlite_dialect.html> and <https://gdal.org/en/stable/user/ogr_sql_dialect.html>; requires latest 'terra' (1.7-33+)
  
  - Added `gpkg_rast()` (analog of `gpkg_vect()` for `terra::rast()`) for lazy manipulation of gridded data in a GeoPackage
  
