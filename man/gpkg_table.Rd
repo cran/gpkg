@@ -86,19 +86,17 @@ gpkg_sf(x, table_name, ...)
 \code{gpkg_sf()}: Get a \emph{sf-tibble} object corresponding to the specified \code{table_name}
 }
 \examples{
-\dontshow{if (requireNamespace("RSQLite", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("terra", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("RSQLite", quietly = TRUE) && requireNamespace("dbplyr", quietly = TRUE) && requireNamespace("terra", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 
 tf <- tempfile(fileext = ".gpkg")
 
 r <- terra::rast(system.file("extdata", "dem.tif", package = "gpkg"))
 
-gpkg_write(r,
-           destfile = tf,
+gpkg_write(r, tf,
            RASTER_TABLE = "DEM1",
            FIELD_NAME = "Elevation")
 
-gpkg_write(r,
-           destfile = tf,
+gpkg_write(r, tf,
            append = TRUE,
            RASTER_TABLE = "DEM2",
            FIELD_NAME = "Elevation")

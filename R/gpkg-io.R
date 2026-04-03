@@ -79,21 +79,42 @@ gpkg_read <- function(x, connect = FALSE, quiet = TRUE) {
 
 #' Write data to a GeoPackage
 #' @param x Vector of source file path(s), or a list containing one or more
-#'   SpatRaster, SpatRasterCollection, or SpatVectorProxy objects.
-#' @param destfile Character. Path to output GeoPackage
-#' @param table_name Character. Default `NULL` name is derived from source file.
+#'   SpatRaster, SpatRasterCollection, SpatVectorProxy, or data.frame objects.
+#' @param y _character_, _geopackage_, or _DBIConnection_. 
+#' @param destfile _character_. Path to output GeoPackage
+#' @param table_name _character_. Default `NULL` name is derived from source file.
 #'   Required if `x` is a _data.frame_.
-#' @param datatype Data type. Defaults to `"FLT4S"` for GeoTIFF files, `"INT2U"`
+#' @param datatype _character_. Data type. Defaults to `"FLT4S"` for GeoTIFF files, `"INT2U"`
 #'   otherwise. See documentation for `terra::writeRaster()`.
-#' @param append Append to existing data source? Default: `FALSE`. Setting
-#'   `append=TRUE` overrides `overwrite=TRUE`
-#' @param overwrite Overwrite existing data source? Default `FALSE`.
-#' @param NoData Value to use as GDAL `NoData` Value
-#' @param gdal_options Additional `gdal_options`, passed to
+#' @param append _logical_. Append to existing data source? Default: `FALSE`.
+#'   When `TRUE`, new data are added to the existing table(s) if they exist.
+#'   For raster data, this adds a new subdataset (layer) to the GeoPackage
+#'   (via `APPEND_SUBDATASET=YES` creation option). For attribute tables,
+#'   this appends rows to the existing table. For vector data, this 
+#'   maps to the `insert` argument of `terra::writeVector()`.
+#'   Setting `append=TRUE` overrides `overwrite=TRUE`.
+#' @param overwrite _logical_. Overwrite existing data source? Default `FALSE`.
+#'   When `TRUE`, existing table(s) with the same name are dropped and recreated.
+#'   Note that this only affects the specific tables being written; it does not 
+#'   delete other existing tables in the GeoPackage file. To completely 
+#'   overwrite an entire GeoPackage file, delete it first using `unlink()`.
+#' @param NoData _numeric_. Value to use as GDAL `NoData` Value
+#' @param auto_nodata logical. If TRUE (default), automatically select a datatype-appropriate
+#'   default NoData value when `NoData = NULL`, determined by [gpkg_default_nodata()].
+#'   Set to FALSE to use terra's default behavior (NaN for floats), which may trigger GDAL
+#'   warnings.  Ignored if `NoData` is explicitly specified.
+#' @param gdal_options _character_. Additional `gdal_options`, passed to
 #'   `terra::writeRaster()`
-#' @param ... Additional arguments are passed as GeoPackage "creation options."
+#' @param ... Additional arguments are passed as GeoPackage creation options.
 #'   See Details.
-#' @details Additional, non-default GeoPackage creation options can be specified
+#' @details `gpkg_write()` can write multiple layers of different types (raster,
+#'   vector, and attributes) in a single call when `x` is a list. If calling
+#'   `gpkg_write()` multiple times to build a GeoPackage, use `append=TRUE`
+#'   to add additional layers. To replace a specific table while preserving 
+#'   others, use `overwrite=TRUE`. Note that `overwrite=TRUE` only drops the
+#'   specified `table_name` and does not affect other tables in the file.
+#'
+#'   Additional, non-default GeoPackage creation options can be specified
 #'   as arguments to this function. The full list of creation options can be
 #'   viewed
 #'   [here](https://gdal.org/en/stable/drivers/raster/gpkg.html#creation-options)
@@ -113,26 +134,42 @@ gpkg_read <- function(x, connect = FALSE, quiet = TRUE) {
 #'   _geopackage_ object) or `gpkg_tables()` (returns a _list_ object).
 #'
 #' @return Logical. `TRUE` on successful write of at least one grid.
-#' @seealso [gpkg_creation_options]
+#' @seealso [gpkg_creation_options] [gpkg_default_nodata()]
 #' @export
 #' @keywords io
 gpkg_write <- function(x,
-                       destfile,
+                       y = NULL,
                        table_name = NULL,
                        datatype = "FLT4S",
                        append = FALSE,
                        overwrite = FALSE,
                        NoData = NULL,
                        gdal_options = NULL,
+                       auto_nodata = TRUE,
+                       destfile = NULL,
                        ...) {
-  res <- .gpkg_process_sources(x, 
-                               destfile,
+  
+  if (!missing(destfile)) {
+    .Deprecated(msg = "Argument `destfile` is deprecated; use `y`")
+    y <- destfile
+  }
+  
+  if (inherits(y, 'geopackage')) {
+    y <- gpkg_connection(y)
+  }
+  
+  if (inherits(y, 'DBIConnection')) {
+    y <- DBI::dbGetInfo(y)$dbname
+  }
+  
+  res <- .gpkg_process_sources(x, y,
                                table_name = table_name,
                                datatype = datatype,
                                append = append,
                                overwrite = overwrite,
                                NoData = NoData,
                                gdal_options = gdal_options,
+                               auto_nodata = auto_nodata,
                                ...)
   invisible(.gpkg_postprocess_sources(res))
 }
@@ -143,8 +180,16 @@ gpkg_write <- function(x,
 
 .gpkg_process_sources <- function(x, ...) {
   
+  args <- list(...)
+  
   if (!is.list(x) || is.data.frame(x)) {
     x <- list(x)
+    if (!is.null(args$table_name) && nchar(args$table_name) > 0) {
+      names(x) <- args$table_name
+    }
+  } else if (length(x) == 1 && is.null(names(x)) && 
+             !is.null(args$table_name) && nchar(args$table_name) > 0) {
+    names(x) <- args$table_name
   }
   
   # objects with a file source
@@ -318,6 +363,7 @@ gpkg_write <- function(x,
                                               overwrite = FALSE,
                                               NoData = NULL,
                                               gdal_options = NULL,
+                                              auto_nodata = TRUE,
                                               ...) {
   res <- NULL
   if (!requireNamespace('terra', quietly = TRUE)) stop('the `terra` package is required to write gridded data to GeoPackage', call. = FALSE)
@@ -338,12 +384,33 @@ gpkg_write <- function(x,
     }
   }
   
+  nodata_unset <- missing(NoData) || is.null(NoData)
+  if (is.nan(terra::NAflag(r)) && is.null(NoData) && isTRUE(auto_nodata)) {
+    NoData <- gpkg_default_nodata(terra::datatype(r))
+  }
+  
+  # warn about setting data_null
+  terra_naflag <- terra::NAflag(r)
+  if (((!is.null(NoData) && is.finite(NoData)) ||
+        is.nan(terra_naflag)) && 
+      isTRUE(auto_nodata)) {
+    if (nodata_unset && is.nan(terra_naflag)) {
+      message(
+        "gpkg_write: setting NoData to ",
+        NoData,
+        "; specify NoData argument explicitly to override, or auto_nodata=FALSE to explicitly use SQL NULL in gpkg_2d_gridded_coverage_ancillary.data_null"
+      )
+    }
+    terra_naflag <- NoData
+  }
+  
   res <- terra::writeRaster(
     x = r,
     filename = destfile,
     datatype = datatype,
     overwrite = overwrite,
-    gdal = gdal_options
+    gdal = gdal_options,
+    NAflag = terra_naflag
   )
 
   if (!is.null(NoData)) {

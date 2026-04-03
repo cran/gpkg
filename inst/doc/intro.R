@@ -20,14 +20,14 @@ if (file.exists(gpkg_tmp))
 # write a gpkg with two DEMs in it
 gpkg_write(
   dem,
-  destfile = gpkg_tmp,
+  gpkg_tmp,
   RASTER_TABLE = "DEM1",
   FIELD_NAME = "Elevation"
 )
 
 gpkg_write(
   dem,
-  destfile = gpkg_tmp,
+  gpkg_tmp,
   append = TRUE,
   RASTER_TABLE = "DEM2",
   FIELD_NAME = "Elevation",
@@ -38,11 +38,11 @@ gpkg_write(
 # add bounding polygon vector layer via named list
 r <- gpkg_tables(gpkg_tmp)[['DEM1']]
 v <- terra::as.polygons(r, ext = TRUE)
-gpkg_write(list(bbox = v), destfile = gpkg_tmp)
+gpkg_write(list(bbox = v), gpkg_tmp)
 
 ## -----------------------------------------------------------------------------
 z <- data.frame(a = 1:10, b = LETTERS[1:10])
-gpkg_write(list(myattr = z), destfile = gpkg_tmp)
+gpkg_write(list(myattr = z), gpkg_tmp)
 
 ## -----------------------------------------------------------------------------
 g <- geopackage(gpkg_tmp, connect = TRUE)
